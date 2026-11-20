@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Offline tool to generate a SKlauncher accounts file (accounts.bin for 3.2, accounts.json for 4.0). Everything runs locally in your browser.">
+<title>SKlauncher Accounts</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%232563eb'/%3E%3Cpath d='M12 4 5 8v8l7 4 7-4V8l-7-4Z' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+  *{box-sizing:border-box}
+  body{
+    margin:0;min-height:100vh;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;transition:background .3s,color .3s;
+  }
+
+  body[data-v="bin"]{
+    --bg:#16191d; --card:#212529; --card2:#2b3035; --line:#343b44; --input:#1a1e23;
+    --text:#ffffff; --muted:#a5a6a7;
+    --accent:#2563eb; --accent2:#1945a4; --accent-btn:#2563eb; --accent-fg:#fafafa; --accent-soft:rgba(37,99,235,.14);
+    --ms:#64748b; --ms-soft:rgba(100,116,139,.16); --ms-fg:#cbd5e1; --tag-off:#93b4ff;
+    color:var(--text);
+    background:radial-gradient(900px 480px at 82% -12%,rgba(37,99,235,.16),transparent 60%),var(--bg);
+  }
+
+  body[data-v="json"]{
+    --bg:#0a0a0a; --card:#18181b; --card2:#202024; --line:#2b2b31; --input:#141417;
+    --text:#f4f4f5; --muted:#9ca3af;
+    --accent:#8b5cf6; --accent2:#764ba2; --accent-btn:#7c3aed; --accent-fg:#ffffff; --accent-soft:rgba(139,92,246,.16);
+    --ms:#6366f1; --ms-soft:rgba(99,102,241,.16); --ms-fg:#c7d2fe; --tag-off:#c4b5fd;
+    color:var(--text);
+    background:radial-gradient(900px 480px at 82% -12%,rgba(118,75,162,.22),transparent 60%),var(--bg);
+  }
+  .app{width:100%;max-width:560px}
+
+  .head{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+  .logo{width:40px;height:40px;border-radius:11px;background:linear-gradient(145deg,var(--accent),var(--accent2));
+    display:grid;place-items:center;transition:.3s}
+  .logo svg{width:22px;height:22px}
+  .head h1{font-size:18px;margin:0;font-weight:700;letter-spacing:-.2px}
+  .head p{margin:1px 0 0;font-size:12.5px;color:var(--muted)}
+
+  .seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:20px}
+  .seg button{flex:1;background:transparent;border:0;color:var(--muted);font-size:13px;font-weight:600;
+    padding:9px 10px;border-radius:9px;cursor:pointer;transition:.15s}
+  .seg button .f{font-size:11px;font-weight:500}
+  .seg button.on{background:var(--accent-btn);color:var(--accent-fg)}
+
+  .label{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:0 2px 9px;font-weight:600}
+
+  .acc{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);
+    border-radius:14px;padding:11px 12px;margin-bottom:10px;transition:.15s}
+  .acc.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .acc.locked{background:
+    repeating-linear-gradient(135deg,var(--card),var(--card) 11px,var(--card2) 11px,var(--card2) 22px)}
+
+  .cube{width:38px;height:38px;border-radius:9px;flex:none;display:grid;place-items:center;
+    font-weight:800;font-size:16px;text-transform:uppercase;color:var(--accent-fg)}
+  .cube.o{background:linear-gradient(145deg,var(--accent),var(--accent2))}
+  .cube.m{background:linear-gradient(145deg,var(--ms),var(--accent2))}
+
+  .body{flex:1;min-width:0}
+
+  .field{display:flex;align-items:center;gap:6px;background:var(--input);border:1px solid var(--line);
+    border-radius:8px;padding:5px 9px;transition:.15s}
+  .field:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .field input{background:transparent;border:0;color:var(--text);font-size:14.5px;font-weight:600;
+    width:100%;outline:none;padding:0}
+  .field input::placeholder{color:#5b626d}
+  .field .pen{width:14px;height:14px;opacity:.5;flex:none}
+  .field.locked{background:transparent;border-color:transparent;padding-left:0}
+  .field.locked input{color:var(--text);font-weight:650}
+  .uuid{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;color:var(--muted);
+    margin-top:5px;padding-left:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .uuid.bad{color:#f87171}
+
+  .tag{font-size:10px;font-weight:700;letter-spacing:.4px;padding:3px 8px;border-radius:999px;white-space:nowrap}
+  .tag.off{color:var(--tag-off);background:var(--accent-soft)}
+  .tag.ms{color:var(--ms-fg);background:var(--ms-soft)}
+
+  .ctrl{display:flex;align-items:center;gap:6px;flex:none}
+  .pill{font-size:11px;font-weight:700;letter-spacing:.3px;border-radius:999px;padding:5px 11px;cursor:pointer;
+    border:1px solid var(--line);background:transparent;color:var(--muted);transition:.15s}
+  .pill:hover{color:var(--text);border-color:var(--accent)}
+  .pill.on{background:var(--accent-btn);color:var(--accent-fg);border-color:var(--accent-btn);cursor:default}
+  .icon{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--muted);
+    cursor:pointer;display:grid;place-items:center;font-size:15px;transition:.15s}
+  .icon:hover{color:#f87171;border-color:rgba(248,113,113,.45)}
+  .icon:disabled{opacity:.3;cursor:not-allowed}
+  .icon:disabled:hover{color:var(--muted);border-color:var(--line)}
+  .lock{color:var(--muted);font-size:14px;padding:0 6px;user-select:none}
+
+  .add{width:100%;background:transparent;border:1px dashed var(--line);color:var(--muted);
+    border-radius:14px;padding:12px;font-size:13.5px;font-weight:600;cursor:pointer;transition:.15s;margin-bottom:22px}
+  .add:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+
+  .gen{width:100%;background:linear-gradient(145deg,var(--accent-btn),var(--accent2));color:var(--accent-fg);border:0;
+    padding:14px;border-radius:14px;font-size:15px;font-weight:750;cursor:pointer;
+    transition:.15s}
+  .gen:hover{filter:brightness(1.07)}
+  .gen:disabled{opacity:.5;cursor:not-allowed;filter:none}
+  .genstatus{font-size:12px;text-align:center;margin-top:10px;min-height:0;color:var(--muted)}
+  .genstatus.bad{color:#f87171}
+  .genstatus.ok{color:var(--tag-off)}
+
+  .flow{margin-top:0;border:1px solid var(--line);border-radius:12px;background:var(--card);
+    opacity:0;max-height:0;overflow:hidden;transition:opacity .3s,max-height .4s,margin-top .3s}
+  .flow.show{opacity:1;max-height:280px;margin-top:14px}
+  .stage{position:relative;height:190px;margin:12px 12px 0;border-radius:10px;background:var(--card2);overflow:hidden}
+  .folder{position:absolute;left:66%;top:28%;display:flex;flex-direction:column;align-items:center;gap:7px;z-index:1;transform-origin:center}
+  .folder svg{width:58px;height:58px;color:var(--accent)}
+  .folder .plabel{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10.5px;color:var(--muted);
+    background:var(--card);border:1px solid var(--line);border-radius:6px;padding:2px 7px;white-space:nowrap}
+  .file{position:absolute;left:15%;top:30%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:6px;
+    background:var(--card);border:1px solid var(--accent);border-radius:8px;padding:6px 9px;z-index:3;box-shadow:0 6px 16px rgba(0,0,0,.4)}
+  .file svg{width:16px;height:16px;color:var(--accent);flex:none}
+  .file span{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:var(--text);white-space:nowrap}
+  .cursor{position:absolute;left:52%;top:82%;width:19px;height:19px;z-index:4;transform-origin:top left}
+  .done{position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:7px;
+    background:var(--accent-btn);color:var(--accent-fg);border-radius:9px;padding:8px 13px;font-size:12.5px;font-weight:650;opacity:0;z-index:5;white-space:nowrap}
+  .done svg{width:16px;height:16px}
+  .fcap{padding:11px 14px 12px;text-align:center;font-size:11px;color:var(--muted)}
+  .flow.show .file{animation:fileMove 5.5s ease-in-out infinite}
+  .flow.show .cursor{animation:cursorMove 5.5s ease-in-out infinite}
+  .flow.show .folder{animation:folderPulse 5.5s ease-in-out infinite}
+  .flow.show .done{animation:donePop 5.5s ease-in-out infinite}
+  @keyframes fileMove{
+    0%{left:15%;top:30%;opacity:0;transform:translate(-50%,-50%) scale(.7)}
+    5%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+    24%{left:15%;top:30%;opacity:1;transform:translate(-50%,-50%) scale(1)}
+    29%{transform:translate(-50%,-50%) scale(.9)}
+    52%{left:66%;top:33%;opacity:1;transform:translate(-50%,-50%) scale(.9)}
+    58%{left:66%;top:40%;opacity:0;transform:translate(-50%,-50%) scale(.45)}
+    100%{left:66%;top:40%;opacity:0}}
+  @keyframes cursorMove{
+    0%{left:52%;top:82%;opacity:0;transform:scale(1)}
+    7%{opacity:1}
+    23%{left:19%;top:42%;opacity:1;transform:scale(1)}
+    27%{transform:scale(.78)}
+    31%{transform:scale(1)}
+    52%{left:70%;top:46%;transform:scale(1)}
+    57%{transform:scale(.78)}
+    62%{transform:scale(1)}
+    73%{left:84%;top:84%;opacity:0}
+    100%{opacity:0}}
+  @keyframes folderPulse{0%,46%{transform:scale(1)}54%{transform:scale(1.13)}62%,100%{transform:scale(1)}}
+  @keyframes donePop{
+    0%,60%{opacity:0;transform:translate(-50%,-50%) translateY(8px) scale(.9)}
+    68%{opacity:1;transform:translate(-50%,-50%) translateY(0) scale(1)}
+    90%{opacity:1}96%,100%{opacity:0}}
+  @media (prefers-reduced-motion:reduce){
+    .flow.show .file,.flow.show .cursor,.flow.show .folder,.flow.show .done{animation:none}
+    .cursor,.file{display:none}
+    .done{opacity:1}}
+
+  .paths{margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .paths .ptitle{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px}
+  .paths .prow{display:flex;gap:10px;font-size:11.5px;margin:4px 0;align-items:baseline}
+  .paths .os{flex:none;width:58px;color:var(--text);font-weight:600}
+  .paths code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:var(--tag-off);
+    word-break:break-all}
+
+  .disclaimer{margin-top:22px;padding-top:16px;border-top:1px solid var(--line);
+    font-size:11px;line-height:1.6;color:var(--muted);text-align:center}
+</style>
+</head>
+<body data-v="bin">
+<main class="app">
+
+  <div class="head">
+    <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2 3 7v10l9 5 9-5V7l-9-5Z" stroke="var(--accent-fg)" stroke-width="2" stroke-linejoin="round"/><path d="M12 22V12M3 7l9 5 9-5" stroke="var(--accent-fg)" stroke-width="2" stroke-linejoin="round"/></svg></div>
+    <div><h1>SKlauncher Accounts</h1><p>Generate your accounts file — all local, nothing uploaded.</p></div>
+  </div>
+
+  <div class="seg" id="seg">
+    <button class="on" data-v="bin">SKlauncher 3.2 <span class="f">· accounts.bin</span></button>
+    <button data-v="json">SKlauncher 4.0 <span class="f">· accounts.json</span></button>
+  </div>
+
+  <p class="label">Offline accounts</p>
+  <div id="offline"></div>
+  <button class="add" id="add">+ Add offline account</button>
+
+  <p class="label">Microsoft accounts · locked</p>
+  <div id="ms"></div>
+
+  <button class="gen" id="gen">Download accounts.bin</button>
+  <div class="genstatus" id="genstatus"></div>
+
+  <div class="flow" id="flow" aria-hidden="true">
+    <div class="stage">
+      <div class="folder">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        <span class="plabel" id="animPath">\.minecraft\sklauncher</span>
+      </div>
+      <div class="file" id="animFile">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M6 2h8l4 4v16H6z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 2v4h4" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        <span id="animName">accounts.bin</span>
+      </div>
+      <div class="done"><svg viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Offline account ready</div>
+      <svg class="cursor" viewBox="0 0 16 16"><path d="M1 1 L1 12 L4.2 9 L6.6 14.3 L8.5 13.5 L6.1 8.3 L10.5 8.3 Z" fill="#fff" stroke="#111" stroke-width="0.8" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="fcap">The file goes into your launcher folder — then open SKlauncher.</div>
+  </div>
+  <div class="paths" id="paths"></div>
+
+  <footer class="disclaimer">
+    Unofficial, community-made tool. Not affiliated with, endorsed by, or associated with
+    SKlauncher, Mojang Studios or Microsoft. Minecraft is a trademark of Mojang Studios.
+  </footer>
+
+</main>
+
+<script>
+function md5bytes(bytes){
+  const rol=(x,c)=>((x<<c)|(x>>>(32-c)))>>>0;
+  const s=[7,12,17,22,7,12,17,22,7,12,17,22,7,12,17,22,5,9,14,20,5,9,14,20,5,9,14,20,5,9,14,20,4,11,16,23,4,11,16,23,4,11,16,23,4,11,16,23,6,10,15,21,6,10,15,21,6,10,15,21,6,10,15,21];
+  const K=[];for(let i=0;i<64;i++)K[i]=(Math.floor(Math.abs(Math.sin(i+1))*4294967296))>>>0;
+  const ml=bytes.length;let total=ml+1;while(total%64!==56)total++;
+  const msg=new Uint8Array(total+8);msg.set(bytes,0);msg[ml]=0x80;const bl=ml*8;
+  msg[total]=bl&0xff;msg[total+1]=(bl>>>8)&0xff;msg[total+2]=(bl>>>16)&0xff;msg[total+3]=(bl>>>24)&0xff;
+  let a=0x67452301,b=0xefcdab89,c=0x98badcfe,d=0x10325476;const dv=new DataView(msg.buffer);
+  for(let o=0;o<msg.length;o+=64){let M=[];for(let i=0;i<16;i++)M[i]=dv.getUint32(o+i*4,true);let A=a,B=b,C=c,D=d;
+    for(let i=0;i<64;i++){let F,g;if(i<16){F=(B&C)|(~B&D);g=i;}else if(i<32){F=(D&B)|(~D&C);g=(5*i+1)%16;}else if(i<48){F=B^C^D;g=(3*i+5)%16;}else{F=C^(B|~D);g=(7*i)%16;}F=(F+A+K[i]+M[g])>>>0;A=D;D=C;C=B;B=(B+rol(F,s[i]))>>>0;}
+    a=(a+A)>>>0;b=(b+B)>>>0;c=(c+C)>>>0;d=(d+D)>>>0;}
+  const out=new Uint8Array(16),x=new DataView(out.buffer);x.setUint32(0,a,true);x.setUint32(4,b,true);x.setUint32(8,c,true);x.setUint32(12,d,true);return out;
+}
+function offlineUuid(name){
+  const b=md5bytes(new TextEncoder().encode("OfflinePlayer:"+name));b[6]=(b[6]&0x0f)|0x30;b[8]=(b[8]&0x3f)|0x80;
+  return [...b].map(x=>x.toString(16).padStart(2,"0")).join("");
+}
+const dash=h=>h.slice(0,8)+"-"+h.slice(8,12)+"-"+h.slice(12,16)+"-"+h.slice(16,20)+"-"+h.slice(20);
+const norm=s=>(s||"").trim().slice(0,16);
+const valid=s=>(s||"").trim().length>=3;
+
+const MAGIC=Uint8Array.from([83,75,76,65]);
+const XKEY =Uint8Array.from([77,105,110,101,99,114,97,102,116,76,97,117,110,99,104,101]);
+const xor=d=>{const r=new Uint8Array(d.length);for(let i=0;i<d.length;i++)r[i]=d[i]^XKEY[i%XKEY.length];return r;};
+const gzipOK=typeof CompressionStream!=="undefined";
+async function gzip(bytes){const cs=new CompressionStream("gzip");const w=cs.writable.getWriter();w.write(bytes);w.close();return new Uint8Array(await new Response(cs.readable).arrayBuffer());}
+async function buildBin(jsonStr){
+  const ob=xor(await gzip(new TextEncoder().encode(jsonStr)));
+  const out=new Uint8Array(12+ob.length),dv=new DataView(out.buffer);
+  out.set(MAGIC,0);dv.setInt32(4,1,false);dv.setInt32(8,ob.length,false);out.set(ob,12);
+  return out;
+}
+function download(data,name,type){
+  const blob=data instanceof Blob?data:new Blob([data],{type:type||"application/octet-stream"});
+  const url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+
+let version="bin";
+let offline=[{key:crypto.randomUUID(),name:"Example"}];
+let activeKey=offline[0].key;
+const notch={name:"Notch",uuid:"069a79f444e94726a5befca90e38aaf5",id40:"e7c2c3d1-c200-46df-9caf-57addeff75e5",refreshToken:""};
+const $=id=>document.getElementById(id);
+
+const PATHS={
+  bin:[["Windows","%APPDATA%\\.minecraft\\sklauncher"],["Linux","~/.minecraft/sklauncher"],["macOS","~/Library/Application Support/minecraft/sklauncher"]],
+  json:[["Windows","%APPDATA%\\.sklauncher"],["Linux","~/.sklauncher"],["macOS","~/Library/Application Support/sklauncher"]]
+};
+
+function build32(){
+  const accounts={};
+  offline.forEach(a=>{const nm=norm(a.name);if(!valid(nm))return;const u=offlineUuid(nm);
+    accounts[u]={displayName:nm,type:"msa",uuid:u};});
+  accounts[notch.uuid]={displayName:notch.name,type:"msa",uuid:notch.uuid,refreshToken:notch.refreshToken};
+  const act=offline.find(a=>a.key===activeKey);
+  return {accounts,activeAccountLocalId:act&&valid(act.name)?offlineUuid(norm(act.name)):null};
+}
+function build40(){
+  const accounts=[];let activeId=null;
+  offline.forEach(a=>{const nm=norm(a.name);if(!valid(nm))return;
+    accounts.push({id:a.key,type:"offline",username:nm,uuid:dash(offlineUuid(nm))});
+    if(a.key===activeKey)activeId=a.key;});
+  accounts.push({id:notch.id40,type:"microsoft",username:notch.name,uuid:notch.uuid,
+    expiresAt:0,msaExpiresAt:0,lastRefreshAt:0,
+    profile:{uuid:notch.uuid,username:notch.name,skin:{url:"",variant:"classic"}}});
+  return {accounts,activeAccountId:activeId};
+}
+
+function render(){
+  const ol=$("offline");ol.innerHTML="";
+  offline.forEach((a,i)=>{
+    const on=a.key===activeKey, nm=norm(a.name), ok=valid(nm);
+    const row=document.createElement("div");row.className="acc"+(on?" active":"");
+    row.innerHTML=`
+      <div class="cube o">${nm[0]||"?"}</div>
+      <div class="body">
+        <div class="field">
+          <input value="${a.name.replace(/"/g,'&quot;')}" maxlength="16" placeholder="Username" aria-label="Username">
+          <svg class="pen" viewBox="0 0 24 24" fill="none"><path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="uuid ${ok?'':'bad'}">${ok?offlineUuid(nm):'⚠ min. 3 characters'}</div>
+      </div>
+      <span class="tag off">OFFLINE</span>
+      <div class="ctrl">
+        ${on?'<span class="pill on">ACTIVE</span>':'<button class="pill setA">Set active</button>'}
+        <button class="icon del" ${i===0?'disabled title="Primary — always kept"':'title="Remove"'}>&times;</button>
+      </div>`;
+    row.querySelector("input").oninput=e=>{a.name=e.target.value;liveRow(row,a);};
+    const sa=row.querySelector(".setA"); if(sa) sa.onclick=()=>{activeKey=a.key;render();};
+    const del=row.querySelector(".del"); del.onclick=()=>{
+      if(i===0)return;
+      const wasActive=a.key===activeKey;
+      offline.splice(i,1);
+      if(wasActive) activeKey=offline[0].key;
+      render();
+    };
+    ol.appendChild(row);
+  });
+  $("ms").innerHTML=`
+    <div class="acc locked">
+      <div class="cube m">N</div>
+      <div class="body">
+        <div class="field locked"><input value="Notch" disabled aria-label="Notch (locked Microsoft account)"></div>
+        <div class="uuid">${notch.uuid}</div>
+      </div>
+      <span class="tag ms">MICROSOFT</span>
+      <div class="ctrl"><span class="lock">🔒</span></div>
+    </div>`;
+  $("gen").textContent = version==="bin" ? "Download accounts.bin" : "Download accounts.json";
+  $("paths").innerHTML =
+    `<div class="ptitle">Goes in</div>`+
+    PATHS[version].map(([os,p])=>`<div class="prow"><span class="os">${os}</span><code>${p}</code></div>`).join("");
+  updateValidity();
+}
+const allValid=()=>offline.every(a=>valid(a.name));
+function updateValidity(){
+  const names=allValid(), canBin=version!=="bin"||gzipOK;
+  const gen=$("gen"),st=$("genstatus");
+  gen.disabled=!(names&&canBin);
+  if(!names){ st.textContent="Every offline name needs 3–16 characters."; st.className="genstatus bad"; }
+  else if(!canBin){ st.textContent="This browser can't build .bin (no GZIP support). Try a recent Chrome/Edge/Firefox."; st.className="genstatus bad"; }
+  else { st.textContent=""; st.className="genstatus"; }
+}
+function liveRow(row,a){
+  const nm=norm(a.name),ok=valid(nm);
+  row.querySelector(".cube").textContent=(nm[0]||"?");
+  const u=row.querySelector(".uuid");u.className="uuid"+(ok?"":" bad");u.textContent=ok?offlineUuid(nm):"⚠ min. 3 characters";
+  if(row.classList.contains("active")){} updateValidity();
+}
+
+function playFlow(){
+  const f=$("flow");
+  $("animName").textContent = version==="bin" ? "accounts.bin" : "accounts.json";
+  $("animPath").textContent = version==="bin" ? "\\.minecraft\\sklauncher" : "\\.sklauncher";
+  f.classList.remove("show"); void f.offsetWidth; f.classList.add("show");
+}
+function hideFlow(){ $("flow").classList.remove("show"); }
+
+$("add").onclick=()=>{offline.push({key:crypto.randomUUID(),name:"Player"+(offline.length+1)});render();};
+$("seg").querySelectorAll("button").forEach(b=>b.onclick=()=>{
+  $("seg").querySelectorAll("button").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on");version=b.dataset.v;document.body.dataset.v=version;hideFlow();render();
+});
+
+$("gen").onclick=async()=>{
+  if($("gen").disabled)return;
+  const gen=$("gen"),st=$("genstatus"),label=gen.textContent;
+  try{
+    if(version==="bin"){
+      const bin=await buildBin(JSON.stringify(build32()));
+      download(bin,"accounts.bin");
+    }else{
+      download(new TextEncoder().encode(JSON.stringify(build40(),null,2)),"accounts.json","application/json");
+    }
+    gen.textContent="✓ Downloaded"; st.textContent=""; st.className="genstatus";
+    playFlow();
+    setTimeout(()=>{gen.textContent=label;updateValidity();},1600);
+  }catch(e){
+    st.textContent="✗ "+e.message; st.className="genstatus bad";
+  }
+};
+render();
+</script>
+</body>
+</html>
